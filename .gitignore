@@ -1,0 +1,38 @@
+# ── Python / uv ───────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv/
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# ── Coverage ──────────────────────────────────────────────────────────────────
+.coverage
+htmlcov/
+.pytest_cache/
+
+# ── Environment ───────────────────────────────────────────────────────────────
+.env
+*.env.local
+
+# ── Node / frontend ───────────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# ── IDEs ──────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# ── uv ────────────────────────────────────────────────────────────────────────
+# uv.lock is intentionally NOT gitignored — commit it for reproducible installs
+
+backend/data/db.json
