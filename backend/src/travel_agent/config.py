@@ -34,9 +34,6 @@ class Settings(BaseSettings):
     # Stays/Hotels API requires sales approval from Duffel before enabling.
     # Set DUFFEL_ACCOMMODATIONS_ENABLED=true only after your account is approved.
     duffel_accommodations_enabled: bool = False
-    # Stays/Hotels API requires sales approval from Duffel before use.
-    # Set to true only after your account has been granted access.
-    duffel_accommodations_enabled: bool = False
 
     # --- Geoapify ---
     geoapify_api_key: str
@@ -46,13 +43,21 @@ class Settings(BaseSettings):
     # Generate with: python -c "import secrets; print(secrets.token_hex(32))"
     jwt_secret: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
-    # Path to the JSON file used as the user/revocation store (relative to CWD)
-    db_path: str = "data/db.json"
+    # Single-user credentials, supplied via env (no database needed).
+    # Override both in any real deployment.
+    admin_username: str = "admin"
+    admin_password: str = "change-me-in-production"
 
     # --- Deployment ---
     # Controls access to /docs and /openapi.json. Defaults to PROD (most restrictive).
     # Set to DEV to allow unauthenticated access to API docs.
     deployment_type: str = "PROD"
+    # Directory containing the built frontend (index.html + assets). When this
+    # directory exists, the API also serves the SPA from the same origin.
+    static_dir: str = "static"
+    # Comma-separated list of allowed CORS origins (for split frontend/backend dev).
+    # In the single-container deployment the frontend is same-origin, so CORS is unused.
+    cors_origins: str = "http://localhost:5173"
 
     # --- API server ---
     api_host: str = "0.0.0.0"

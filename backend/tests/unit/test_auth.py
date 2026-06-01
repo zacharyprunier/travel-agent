@@ -1,19 +1,18 @@
 """
 Unit tests for the auth module (JWT + store).
 
-JWT tests are pure — no I/O. Store tests write to a temp file and patch
-settings.db_path so nothing touches the real data/db.json.
+JWT tests are pure — no I/O. Store tests patch settings to inject admin
+credentials and use the in-memory revocation set (cleared per-test via the
+autouse fixture in conftest).
 """
-import json
-import time
-from pathlib import Path
 from unittest.mock import patch
 
 import jwt
 import pytest
 
+import travel_agent.auth.store as store
 from travel_agent.auth.jwt import create_token, decode_token, make_jti
-from travel_agent.auth.store import add_revoked_jti, get_user_by_username, is_jti_revoked
+from travel_agent.auth.store import add_revoked_jti, is_jti_revoked, verify_credentials
 
 
 # ── JWT unit tests ────────────────────────────────────────────────────────────
@@ -83,45 +82,42 @@ def test_decode_token_raises_on_bad_signature():
 # ── Store unit tests ──────────────────────────────────────────────────────────
 
 @pytest.fixture
-def temp_db(tmp_path: Path):
-    """Write a minimal db.json to a temp file and point settings at it."""
-    db = {
-        "users": [{"id": 1, "username": "test", "password": "test"}],
-        "revoked_tokens": [],
-    }
-    db_file = tmp_path / "db.json"
-    db_file.write_text(json.dumps(db))
-
+def admin_creds():
+    """Inject known admin credentials via patched settings."""
     with patch("travel_agent.auth.store.settings") as mock_settings:
-        mock_settings.db_path = str(db_file)
-        yield db_file
+        mock_settings.admin_username = "test"
+        mock_settings.admin_password = "test"
+        yield
 
 
-def test_get_user_by_username_found(temp_db):
-    user = get_user_by_username("test")
+def test_verify_credentials_valid(admin_creds):
+    user = verify_credentials("test", "test")
     assert user is not None
     assert user["id"] == 1
-    assert user["password"] == "test"
+    assert user["username"] == "test"
 
 
-def test_get_user_by_username_not_found(temp_db):
-    assert get_user_by_username("nobody") is None
+def test_verify_credentials_wrong_password(admin_creds):
+    assert verify_credentials("test", "wrong") is None
 
 
-def test_is_jti_revoked_false_when_clean(temp_db):
+def test_verify_credentials_unknown_user(admin_creds):
+    assert verify_credentials("nobody", "test") is None
+
+
+def test_is_jti_revoked_false_when_clean():
     assert is_jti_revoked("some-jti-abc") is False
 
 
-def test_add_and_check_revoked_jti(temp_db):
+def test_add_and_check_revoked_jti():
     jti = "test-jti-12345"
     assert is_jti_revoked(jti) is False
     add_revoked_jti(jti)
     assert is_jti_revoked(jti) is True
 
 
-def test_add_revoked_jti_is_idempotent(temp_db):
+def test_add_revoked_jti_is_idempotent():
     jti = "idempotent-jti"
     add_revoked_jti(jti)
     add_revoked_jti(jti)  # second call should not duplicate
-    data = json.loads(temp_db.read_text())
-    assert data["revoked_tokens"].count(jti) == 1
+    assert sum(1 for x in store._revoked_jtis if x == jti) == 1

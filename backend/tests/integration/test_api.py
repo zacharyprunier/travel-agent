@@ -8,11 +8,9 @@ call the Anthropic API or external services.
 We use FastAPI's TestClient which runs the ASGI app in-process.
 
 All /api/v1/chat requests carry a valid Bearer token — the auth middleware
-is active and will reject unauthenticated requests with 401.
-The store is patched to a temp db so revocation checks don't touch disk.
+is active and will reject unauthenticated requests with 401. Revocation uses
+the in-memory store (cleared per-test by the autouse fixture in conftest).
 """
-import json
-from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -28,14 +26,6 @@ def access_token() -> str:
     return token
 
 
-@pytest.fixture
-def db_file(tmp_path: Path) -> Path:
-    db = {"users": [{"id": 1, "username": "test", "password": "test"}], "revoked_tokens": []}
-    f = tmp_path / "db.json"
-    f.write_text(json.dumps(db))
-    return f
-
-
 def test_health_check(api_client: TestClient):
     """GET /health should return 200 with status=ok (no auth required)."""
     response = api_client.get("/health")
@@ -44,17 +34,15 @@ def test_health_check(api_client: TestClient):
     assert data["status"] == "ok"
 
 
-def test_chat_returns_agent_response(api_client: TestClient, access_token: str, db_file: Path):
+def test_chat_returns_agent_response(api_client: TestClient, access_token: str):
     """POST /api/v1/chat should return the agent's response."""
-    with patch("travel_agent.auth.store.settings") as ms:
-        ms.db_path = str(db_file)
-        with patch("travel_agent.api.routes.agent.loop.run", new_callable=AsyncMock) as mock_run:
-            mock_run.return_value = "Here is your Tokyo trip plan!"
-            response = api_client.post(
-                "/api/v1/chat",
-                json={"message": "Plan a 5-day trip to Tokyo"},
-                headers={"Authorization": f"Bearer {access_token}"},
-            )
+    with patch("travel_agent.api.routes.agent.loop.run", new_callable=AsyncMock) as mock_run:
+        mock_run.return_value = "Here is your Tokyo trip plan!"
+        response = api_client.post(
+            "/api/v1/chat",
+            json={"message": "Plan a 5-day trip to Tokyo"},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
 
     assert response.status_code == 200
     data = response.json()
@@ -65,22 +53,20 @@ def test_chat_returns_agent_response(api_client: TestClient, access_token: str, 
     )
 
 
-def test_chat_passes_history_to_agent(api_client: TestClient, access_token: str, db_file: Path):
+def test_chat_passes_history_to_agent(api_client: TestClient, access_token: str):
     """POST /api/v1/chat should forward conversation history to the agent loop."""
     history = [
         {"role": "user", "content": "I want to go somewhere warm"},
         {"role": "assistant", "content": "How about Tokyo?"},
     ]
 
-    with patch("travel_agent.auth.store.settings") as ms:
-        ms.db_path = str(db_file)
-        with patch("travel_agent.api.routes.agent.loop.run", new_callable=AsyncMock) as mock_run:
-            mock_run.return_value = "Great choice!"
-            response = api_client.post(
-                "/api/v1/chat",
-                json={"message": "Yes, Tokyo!", "history": history},
-                headers={"Authorization": f"Bearer {access_token}"},
-            )
+    with patch("travel_agent.api.routes.agent.loop.run", new_callable=AsyncMock) as mock_run:
+        mock_run.return_value = "Great choice!"
+        response = api_client.post(
+            "/api/v1/chat",
+            json={"message": "Yes, Tokyo!", "history": history},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
 
     assert response.status_code == 200
     _, kwargs = mock_run.call_args
@@ -88,28 +74,24 @@ def test_chat_passes_history_to_agent(api_client: TestClient, access_token: str,
     assert kwargs["history"][0]["role"] == "user"
 
 
-def test_chat_returns_500_on_agent_error(api_client: TestClient, access_token: str, db_file: Path):
+def test_chat_returns_500_on_agent_error(api_client: TestClient, access_token: str):
     """POST /api/v1/chat should return 500 when the agent loop raises."""
-    with patch("travel_agent.auth.store.settings") as ms:
-        ms.db_path = str(db_file)
-        with patch("travel_agent.api.routes.agent.loop.run", new_callable=AsyncMock) as mock_run:
-            mock_run.side_effect = RuntimeError("Anthropic API unavailable")
-            response = api_client.post(
-                "/api/v1/chat",
-                json={"message": "Plan a trip"},
-                headers={"Authorization": f"Bearer {access_token}"},
-            )
+    with patch("travel_agent.api.routes.agent.loop.run", new_callable=AsyncMock) as mock_run:
+        mock_run.side_effect = RuntimeError("Anthropic API unavailable")
+        response = api_client.post(
+            "/api/v1/chat",
+            json={"message": "Plan a trip"},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
 
     assert response.status_code == 500
 
 
-def test_chat_rejects_empty_message(api_client: TestClient, access_token: str, db_file: Path):
+def test_chat_rejects_empty_message(api_client: TestClient, access_token: str):
     """POST /api/v1/chat should return 422 for an empty message (Pydantic min_length=1)."""
-    with patch("travel_agent.auth.store.settings") as ms:
-        ms.db_path = str(db_file)
-        response = api_client.post(
-            "/api/v1/chat",
-            json={"message": ""},
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
+    response = api_client.post(
+        "/api/v1/chat",
+        json={"message": ""},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
     assert response.status_code == 422

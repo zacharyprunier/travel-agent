@@ -12,7 +12,10 @@
  */
 import type { AuthResponse, ChatRequest, ChatResponse, HealthResponse, LoginRequest, Message, SSEEvent, StreamChatRequest } from "./types";
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+// Empty string → same-origin relative requests (single-container production).
+// Local dev sets VITE_API_BASE_URL (see frontend/.env.development) to point at
+// the separately-running backend on :8000.
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
 type FetchFn = (input: RequestInfo, init?: RequestInit) => Promise<Response>;
 

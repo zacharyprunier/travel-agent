@@ -48,19 +48,27 @@ def _json_401(error: str) -> Response:
     )
 
 
+def _is_open(path: str) -> bool:
+    """Return True if the path may be served without a valid access token."""
+    # Auth + health endpoints are always open.
+    if path in _UNPROTECTED:
+        return True
+    # Docs routes — open only in DEV, protected (token required) in PROD.
+    if path in _DEV_ONLY_UNPROTECTED:
+        return settings.deployment_type.upper() == "DEV"
+    # Only the API surface is guarded. Everything else (static assets and the
+    # SPA shell served from static_dir) is public — the frontend handles login.
+    if not path.startswith("/api/"):
+        return True
+    return False
+
+
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         path = request.url.path
 
-        # Always-open routes
-        if path in _UNPROTECTED:
+        if _is_open(path):
             return await call_next(request)
-
-        # Docs routes — open in DEV, protected in PROD
-        if path in _DEV_ONLY_UNPROTECTED:
-            if settings.deployment_type.upper() == "DEV":
-                return await call_next(request)
-            # Fall through to token validation in PROD
 
         # Extract Bearer token
         auth_header = request.headers.get("Authorization", "")

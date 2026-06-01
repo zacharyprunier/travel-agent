@@ -1,60 +1,47 @@
 """
-JSON file persistence for users and revoked token JTIs.
+Auth store — env-var credentials + in-memory token revocation.
 
-No concurrency protection — single-process demo only.
+Credentials come from the environment (ADMIN_USERNAME / ADMIN_PASSWORD via
+settings). There is no database: this is a single-user deployment.
 
-Schema:
-    {
-        "users": [{"id": int, "username": str, "password": str}],
-        "revoked_tokens": [str]   # list of JTI strings
-    }
+Revoked token JTIs are held in a process-level set. This resets on restart or
+redeploy, which is acceptable given the short access-token TTL (1 hour). Single
+process only — no cross-instance sharing.
 """
-import json
 import logging
-from pathlib import Path
+import secrets
 
 from travel_agent.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Synthetic ID for the single admin user (the JWT 'userId' claim).
+_ADMIN_USER_ID = 1
 
-def _db_path() -> Path:
-    return Path(settings.db_path)
-
-
-def _load() -> dict:
-    path = _db_path()
-    if not path.exists():
-        raise FileNotFoundError(f"Auth database not found at {path}")
-    with path.open() as f:
-        return json.load(f)
+# Process-level revocation list. Cleared on restart/redeploy.
+_revoked_jtis: set[str] = set()
 
 
-def _save(data: dict) -> None:
-    with _db_path().open("w") as f:
-        json.dump(data, f, indent=2)
+def verify_credentials(username: str, password: str) -> dict | None:
+    """Return the admin user dict if credentials match, else None.
 
-
-def get_user_by_username(username: str) -> dict | None:
-    """Return the user dict if found, None otherwise."""
-    db = _load()
-    for user in db.get("users", []):
-        if user["username"] == username:
-            return user
+    Both comparisons use constant-time matching and are always evaluated
+    (no short-circuit) to avoid leaking timing information.
+    """
+    username_ok = secrets.compare_digest(username, settings.admin_username)
+    password_ok = secrets.compare_digest(password, settings.admin_password)
+    if username_ok and password_ok:
+        return {"id": _ADMIN_USER_ID, "username": settings.admin_username}
     return None
 
 
 def is_jti_revoked(jti: str) -> bool:
-    """Return True if this JTI appears in the revocation list."""
-    db = _load()
-    return jti in db.get("revoked_tokens", [])
+    """Return True if this JTI appears in the in-memory revocation set."""
+    return jti in _revoked_jtis
 
 
 def add_revoked_jti(jti: str) -> None:
-    """Append a JTI to the revocation list and persist."""
-    db = _load()
-    revoked = db.setdefault("revoked_tokens", [])
-    if jti not in revoked:
-        revoked.append(jti)
-        _save(db)
+    """Add a JTI to the in-memory revocation set (idempotent)."""
+    if jti not in _revoked_jtis:
+        _revoked_jtis.add(jti)
         logger.info("Revoked token jti=%s", jti)

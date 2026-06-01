@@ -8,6 +8,15 @@ import pytest
 from fastapi.testclient import TestClient
 
 from travel_agent.api.main import app
+from travel_agent.auth import store
+
+
+@pytest.fixture(autouse=True)
+def clear_revoked_tokens():
+    """Keep the process-level revocation set isolated between tests."""
+    store._revoked_jtis.clear()
+    yield
+    store._revoked_jtis.clear()
 
 
 @pytest.fixture

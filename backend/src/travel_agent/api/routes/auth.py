@@ -16,7 +16,7 @@ from slowapi.util import get_remote_address
 
 from travel_agent.api.models import AuthResponse, LoginRequest, RefreshRequest
 from travel_agent.auth.jwt import create_token, decode_token
-from travel_agent.auth.store import add_revoked_jti, get_user_by_username, is_jti_revoked
+from travel_agent.auth.store import add_revoked_jti, is_jti_revoked, verify_credentials
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +46,8 @@ def _build_auth_response(user_id: int) -> AuthResponse:
 )
 @_limiter.limit("5/minute")
 async def login(body: LoginRequest, request: Request) -> AuthResponse:
-    user = get_user_by_username(body.username)
-    if user is None or user["password"] != body.password:
+    user = verify_credentials(body.username, body.password)
+    if user is None:
         return JSONResponse(status_code=401, content={"error": "invalid_credentials"})
 
     logger.info("Login successful user_id=%s", user["id"])
