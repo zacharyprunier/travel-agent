@@ -7,7 +7,9 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import type { AuthResponse } from "../api/types";
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+// Empty string → same-origin relative requests (single-container production).
+// See src/api/client.ts for the dev override.
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
 export function Login() {
   const { login } = useAuth();

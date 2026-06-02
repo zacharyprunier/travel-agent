@@ -31,7 +31,9 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+// Empty string → same-origin relative requests (single-container production).
+// See src/api/client.ts for the dev override.
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   // isAuthenticated drives re-renders (e.g. route guards) — the actual tokens
