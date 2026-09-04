@@ -1,0 +1,33 @@
+# Git / CI
+.git
+.gitignore
+.github
+.augment
+
+# Python / uv
+**/__pycache__
+**/*.py[cod]
+**/.venv
+**/*.egg-info
+.coverage
+htmlcov
+.pytest_cache
+
+# Node / frontend build artifacts (rebuilt inside the image)
+frontend/node_modules
+frontend/dist
+frontend/.vite
+
+# Secrets & local data
+**/.env
+**/*.env.local
+backend/data
+
+# Editor / OS
+.vscode
+.idea
+*.swp
+.DS_Store
+
+# Docs that don't affect the build
+DEPLOY.md

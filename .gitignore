@@ -36,3 +36,5 @@ frontend/.vite/
 # uv.lock is intentionally NOT gitignored — commit it for reproducible installs
 
 backend/data/db.json
+# ── Editor/AI tooling ─────────────────────────────────────────────────────────
+.augment/

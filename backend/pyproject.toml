@@ -1,7 +1,7 @@
 [project]
 name = "travel-agent"
 version = "0.1.0"
-description = "Add your description here"
+description = "AI-powered travel planning agent: Claude tool-use loop over Duffel (flights) and Geoapify (POI), served via FastAPI with SSE streaming"
 readme = "README.md"
 authors = [
     { name = "zachprunierpriv", email = "zach.prunier+github@live.com" }
