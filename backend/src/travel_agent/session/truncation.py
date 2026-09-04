@@ -21,6 +21,9 @@ logger = logging.getLogger(__name__)
 RECENT_WINDOW = 6
 SUMMARIZE_THRESHOLD = 12
 SUMMARY_MAX_TOKENS = 4096
+# Haiku is deliberate here: summarization is a cheap, low-stakes task and Haiku
+# is the fastest/cheapest tier. Tests assert against this constant.
+SUMMARIZE_MODEL = "claude-haiku-4-5"
 
 
 def build_truncated_messages(session: Session, new_user_message: str) -> list[dict]:
@@ -108,7 +111,7 @@ async def maybe_summarize(session: Session) -> None:
     try:
         client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
         response = await client.messages.create(
-            model="claude-sonnet-4-5-20250929",
+            model=SUMMARIZE_MODEL,
             max_tokens=SUMMARY_MAX_TOKENS,
             system=(
                 "You are summarizing a travel planning conversation. "

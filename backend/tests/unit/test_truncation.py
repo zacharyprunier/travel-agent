@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, patch
 from travel_agent.session.store import Session
 from travel_agent.session.truncation import (
     RECENT_WINDOW,
+    SUMMARIZE_MODEL,
     SUMMARIZE_THRESHOLD,
     build_truncated_messages,
     maybe_summarize,
@@ -103,10 +104,10 @@ class TestMaybeSummarize:
 
             await maybe_summarize(session)
 
-            # Verify Haiku was called
+            # Verify the summarizer model was called
             mock_client.messages.create.assert_called_once()
             call_kwargs = mock_client.messages.create.call_args.kwargs
-            assert call_kwargs["model"] == "claude-haiku-4-5-20250414"
+            assert call_kwargs["model"] == SUMMARIZE_MODEL
 
         # Summary should be set
         assert session.summary == "Tokyo trip, June 15-20, budget flights preferred"
